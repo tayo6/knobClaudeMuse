@@ -1,0 +1,40 @@
+name: Build VST3 (Windows)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Build (Release)
+        run: cmake --build build --config Release --target GradientKnob_VST3 --parallel
+
+      - name: Locate VST3 artifact
+        id: locate
+        shell: pwsh
+        run: |
+          $vst3 = Get-ChildItem -Path build -Recurse -Filter "*.vst3" -Directory | Select-Object -First 1
+          if (-not $vst3) {
+            throw "No .vst3 bundle found under build/"
+          }
+          Write-Host "Found VST3 at $($vst3.FullName)"
+          echo "vst3_path=$($vst3.FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Upload VST3 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GradientKnob-VST3-Windows
+          path: ${{ steps.locate.outputs.vst3_path }}
+          if-no-files-found: error
