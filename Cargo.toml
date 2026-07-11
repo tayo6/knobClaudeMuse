@@ -1,0 +1,31 @@
+[package]
+name = "gradient_knob"
+version = "0.1.0"
+edition = "2021"
+# IMPORTANT: keep this at or below the rustc version you build with.
+# rustc 1.77.2 is the last release with full Tier-1 Windows 7/8/8.1 support;
+# rustc 1.78+ made Windows 10 the floor for *-pc-windows-* targets.
+rust-version = "1.76"
+
+[lib]
+name = "gradient_knob"
+crate-type = ["cdylib"]
+
+[dependencies]
+# Pinned via `rev` resolved in CI to the last commit before nih-plug's
+# 2024-08-18 MSRV bump to 1.80 (see .github/workflows/build.yml, step
+# "Resolve Win7-compatible nih-plug commit"). The placeholder below is
+# overwritten by CI before building; see README.md if building locally.
+nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", rev = "PINNED_BY_CI" }
+nih_plug_egui = { git = "https://github.com/robbert-vdh/nih-plug.git", rev = "PINNED_BY_CI" }
+
+# egui 0.27.x (pulled in transitively by nih_plug_egui at the pinned commit).
+# Listed explicitly so `cargo tree` / lockfile stay predictable, and because
+# we call a couple of egui APIs directly in ui.rs.
+egui = "0.27"
+
+[profile.release]
+lto = "thin"
+strip = true
+codegen-units = 1
+panic = "abort"
