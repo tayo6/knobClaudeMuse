@@ -195,15 +195,16 @@ void GradientKnob::paint (juce::Graphics& g)
 
     // --- centre readout ------------------------------------------------
     g.setColour (juce::Colours::white);
-    g.setFont (juce::Font (juce::FontOptions (40.0f, juce::Font::plain)));
+    g.setFont (juce::Font (40.0f, juce::Font::plain));
     juce::String pctText = juce::String ((int) std::round (currentValue)) + "%";
     g.drawText (pctText, bounds.withY (centre.y - 30.0f).withHeight (60.0f), juce::Justification::centred);
 
     g.setColour (juce::Colour::fromRGB (130, 130, 130));
-    g.setFont (juce::Font (juce::FontOptions (12.0f, juce::Font::plain)));
+    g.setFont (juce::Font (12.0f, juce::Font::plain));
     g.drawText ("drag or arrow keys", bounds.withY (centre.y + 26.0f).withHeight (20.0f),
                 juce::Justification::centred);
-}
+
+
 
 //==============================================================================
 void GradientKnob::mouseDown (const juce::MouseEvent& e)
