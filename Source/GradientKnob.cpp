@@ -203,8 +203,7 @@ void GradientKnob::paint (juce::Graphics& g)
     g.setFont (juce::Font (12.0f, juce::Font::plain));
     g.drawText ("drag or arrow keys", bounds.withY (centre.y + 26.0f).withHeight (20.0f),
                 juce::Justification::centred);
-
-
+}
 
 //==============================================================================
 void GradientKnob::mouseDown (const juce::MouseEvent& e)
