@@ -49,6 +49,19 @@ zerovec = "=0.10.4"
 base64ct = "=1.6.0"
 home = "=0.5.9"
 
+# `backtrace` is pulled in transitively (used by Rust's own panic-unwinding
+# machinery via std, and often re-pulled by error-reporting crates deeper in
+# a dependency tree). Unlike the edition2024 crates above, this one is a
+# plain MSRV bump: `backtrace 0.3.76`'s manifest declares
+# `rust-version = "1.82.0"`, which our pinned cargo 1.77.2 CAN parse — it
+# just refuses to build against it. `backtrace`'s own stated policy is to
+# track "current stable minus 2", meaning every release after ~April 2024
+# (when rustc 1.77.2 itself shipped) is a plausible MSRV violator, not just
+# 0.3.76. 0.3.69 (2023-08-22) is confirmed to declare no `rust-version`
+# field at all, comfortably predating this churn, so it's pinned here
+# rather than the newest 0.3.7x patch that still happens to work.
+backtrace = "=0.3.69"
+
 [profile.release]
 lto = "thin"
 strip = true
