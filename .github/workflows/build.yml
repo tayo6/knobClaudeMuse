@@ -1,4 +1,4 @@
-name: Build VST3 (Windows 7 compatible)
+name: Build VST3 (Windows)
 
 on:
   push:
@@ -7,121 +7,34 @@ on:
     branches: [ main ]
   workflow_dispatch: {}
 
-env:
-  RUST_TOOLCHAIN: "1.77.2"
-
 jobs:
-  build-windows7:
+  build-windows:
     runs-on: windows-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install pinned Rust toolchain (Windows 7 compatible)
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.RUST_TOOLCHAIN }}
-          targets: x86_64-pc-windows-msvc
+      - name: Configure CMake
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64
 
-      - name: Resolve Win7-compatible nih-plug commit
-        id: resolve
-        shell: bash
-        run: |
-          set -euo pipefail
-          git clone --quiet https://github.com/robbert-vdh/nih-plug.git /tmp/nih-plug-probe
-          cd /tmp/nih-plug-probe
-          SHA=$(git log --before="2024-08-18T00:00:00Z" -n 1 --format=%H origin/master)
-          if [ -z "$SHA" ]; then
-            echo "Could not resolve a pre-2024-08-18 commit" >&2
-            exit 1
-          fi
-          echo "Resolved nih-plug commit: $SHA"
-          echo "nih_plug_rev=$SHA" >> "$GITHUB_OUTPUT"
+      - name: Build (Release)
+        run: cmake --build build --config Release --target GradientKnob_VST3 --parallel
 
-      - name: Patch Cargo.toml with resolved commit
-        shell: bash
-        run: |
-          set -euo pipefail
-          SHA="${{ steps.resolve.outputs.nih_plug_rev }}"
-          sed -i "s/rev = \"PINNED_BY_CI\"/rev = \"$SHA\"/g" Cargo.toml
-          echo "--- Patched Cargo.toml ---"
-          grep -n "nih_plug" Cargo.toml
-
-      - name: Generate Cargo.lock
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! cargo +${{ env.RUST_TOOLCHAIN }} generate-lockfile 2> /tmp/lockfile_err.txt; then
-            cat /tmp/lockfile_err.txt
-            if grep -q "edition2024" /tmp/lockfile_err.txt; then
-              echo ""
-              echo "============================================================"
-              echo "This is the known Windows-7-toolchain vs. edition2024 issue."
-              echo "A transitive dependency published a newer release that"
-              echo "requires cargo >= 1.85, which our pinned 1.77.2 can't parse."
-              echo ""
-              echo "Fix: open Cargo.toml, find the '# --- Transitive-dependency"
-              echo "ceiling pins ---' section, and add a line for the crate"
-              echo "named in the error above, e.g.:"
-              echo '    <crate_name> = "=<last-pre-2025-version>"'
-              echo "Find that version on the crate's docs.rs release history."
-              echo "============================================================"
-            fi
-            exit 1
-          fi
-
-      - name: Build release cdylib
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! cargo +${{ env.RUST_TOOLCHAIN }} build --release --target x86_64-pc-windows-msvc 2> /tmp/build_err.txt; then
-            cat /tmp/build_err.txt
-            if grep -q "cannot be built because it requires rustc" /tmp/build_err.txt; then
-              echo ""
-              echo "============================================================"
-              echo "A transitive dependency's MSRV is newer than our pinned"
-              echo "1.77.2 toolchain. This is different from the edition2024"
-              echo "issue: cargo CAN parse this crate's manifest, it just won't"
-              echo "compile it against a too-old rustc."
-              echo ""
-              echo "Fix: identify the crate + version named in the error above,"
-              echo "check its docs.rs version history for the newest release"
-              echo "that either predates ~April 2024 (when rustc 1.77.2 shipped)"
-              echo "or explicitly declares a rust-version compatible with"
-              echo "1.77.2, then add it to the '# --- Transitive-dependency"
-              echo "ceiling pins ---' section of Cargo.toml, e.g.:"
-              echo '    <crate_name> = "=<older-version>"'
-              echo "============================================================"
-            fi
-            exit 1
-          fi
-
-      - name: Assemble VST3 bundle
+      - name: Locate VST3 artifact
+        id: locate
         shell: pwsh
         run: |
-          # Manually assemble the VST3 bundle layout, since nih-plug's
-          # xtask bundler itself depends on the workspace resolver from
-          # the pinned (older) nih-plug commit and isn't guaranteed stable
-          # to invoke directly across arbitrary commits. This mirrors the
-          # standard VST3 bundle structure any host expects on Windows:
-          #   GradientKnob.vst3/Contents/x86_64-win/GradientKnob.vst3
-          $dllPath = "target/x86_64-pc-windows-msvc/release/gradient_knob.dll"
-          if (-not (Test-Path $dllPath)) {
-            throw "Expected build output not found at $dllPath"
+          $vst3 = Get-ChildItem -Path build -Recurse -Filter "*.vst3" -Directory | Select-Object -First 1
+          if (-not $vst3) {
+            throw "No .vst3 bundle found under build/"
           }
-
-          $bundleRoot = "target/bundled/GradientKnob.vst3"
-          $archDir = Join-Path $bundleRoot "Contents/x86_64-win"
-          New-Item -ItemType Directory -Force -Path $archDir | Out-Null
-
-          Copy-Item $dllPath (Join-Path $archDir "GradientKnob.vst3")
-
-          Write-Host "Bundled VST3 at $bundleRoot"
+          Write-Host "Found VST3 at $($vst3.FullName)"
+          echo "vst3_path=$($vst3.FullName)" >> $env:GITHUB_OUTPUT
 
       - name: Upload VST3 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GradientKnob-VST3-Windows7
-          path: target/bundled/GradientKnob.vst3
+          name: GradientKnob-VST3-Windows
+          path: ${{ steps.locate.outputs.vst3_path }}
           if-no-files-found: error
