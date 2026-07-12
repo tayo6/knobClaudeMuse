@@ -49,7 +49,27 @@ jobs:
           grep -n "nih_plug" Cargo.toml
 
       - name: Generate Cargo.lock
-        run: cargo +${{ env.RUST_TOOLCHAIN }} generate-lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! cargo +${{ env.RUST_TOOLCHAIN }} generate-lockfile 2> /tmp/lockfile_err.txt; then
+            cat /tmp/lockfile_err.txt
+            if grep -q "edition2024" /tmp/lockfile_err.txt; then
+              echo ""
+              echo "============================================================"
+              echo "This is the known Windows-7-toolchain vs. edition2024 issue."
+              echo "A transitive dependency published a newer release that"
+              echo "requires cargo >= 1.85, which our pinned 1.77.2 can't parse."
+              echo ""
+              echo "Fix: open Cargo.toml, find the '# --- Transitive-dependency"
+              echo "ceiling pins ---' section, and add a line for the crate"
+              echo "named in the error above, e.g.:"
+              echo '    <crate_name> = "=<last-pre-2025-version>"'
+              echo "Find that version on the crate's docs.rs release history."
+              echo "============================================================"
+            fi
+            exit 1
+          fi
 
       - name: Build release cdylib
         run: cargo +${{ env.RUST_TOOLCHAIN }} build --release --target x86_64-pc-windows-msvc
@@ -57,6 +77,12 @@ jobs:
       - name: Assemble VST3 bundle
         shell: pwsh
         run: |
+          # Manually assemble the VST3 bundle layout, since nih-plug's
+          # xtask bundler itself depends on the workspace resolver from
+          # the pinned (older) nih-plug commit and isn't guaranteed stable
+          # to invoke directly across arbitrary commits. This mirrors the
+          # standard VST3 bundle structure any host expects on Windows:
+          #   GradientKnob.vst3/Contents/x86_64-win/GradientKnob.vst3
           $dllPath = "target/x86_64-pc-windows-msvc/release/gradient_knob.dll"
           if (-not (Test-Path $dllPath)) {
             throw "Expected build output not found at $dllPath"
