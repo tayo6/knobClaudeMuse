@@ -9,7 +9,16 @@ on:
 
 jobs:
   build-windows:
-    runs-on: windows-latest
+    # Pinned to windows-2022 rather than windows-latest: GitHub migrated
+    # windows-latest/windows-2025 to a Visual Studio 2026 image between
+    # 2026-06-08 and 2026-06-15. VS2022 is no longer installed there, so
+    # CMake's "Visual Studio 17 2022" generator can't find it (this is what
+    # caused "could not find any instance of Visual Studio"). JUCE 7.0.12
+    # predates VS2026 and its newer MSVC toolset, so pinning to the older,
+    # still-supported windows-2022 image is the safer fix here rather than
+    # switching to the "Visual Studio 18 2026" generator string.
+    # See: https://github.com/actions/runner-images/issues/14017
+    runs-on: windows-2022
 
     steps:
       - name: Checkout repository
