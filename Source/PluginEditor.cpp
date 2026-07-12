@@ -9,7 +9,9 @@ GradientKnobAudioProcessorEditor::GradientKnobAudioProcessorEditor (GradientKnob
     titleLabel.setText ("Circular Gradient Knob", juce::dontSendNotification);
     titleLabel.setJustificationType (juce::Justification::centred);
     titleLabel.setColour (juce::Label::textColourId, juce::Colour::fromRGB (200, 200, 200));
-    titleLabel.setFont (juce::Font (juce::FontOptions (18.0f, juce::Font::bold)));
+
+titleLabel.setFont (juce::Font (18.0f, juce::Font::bold));
+
     addAndMakeVisible (titleLabel);
 
     // Knob
