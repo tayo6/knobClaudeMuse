@@ -18,11 +18,36 @@ crate-type = ["cdylib"]
 # overwritten by CI before building; see README.md if building locally.
 nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git", rev = "PINNED_BY_CI" }
 nih_plug_egui = { git = "https://github.com/robbert-vdh/nih-plug.git", rev = "PINNED_BY_CI" }
+# NOTE: egui itself is intentionally NOT listed as a direct dependency here.
+# ui.rs imports it exclusively via `nih_plug_egui::egui::{...}` (the
+# re-export), so only one copy of egui ever enters the build — avoiding any
+# chance of two different egui versions producing incompatible
+# egui::Context types.
 
-# egui 0.27.x (pulled in transitively by nih_plug_egui at the pinned commit).
-# Listed explicitly so `cargo tree` / lockfile stay predictable, and because
-# we call a couple of egui APIs directly in ui.rs.
-egui = "0.27"
+# --- Transitive-dependency ceiling pins -----------------------------------
+# Our pinned toolchain (rustc/cargo 1.77.2) predates Cargo's edition2024
+# support (stabilized in cargo 1.85, Feb 2025). Cargo must PARSE every
+# candidate manifest during resolution, and it does so before any
+# `cargo update --precise` step could intervene — so the fix has to happen
+# here, as upper bounds that stop the resolver from ever considering a
+# too-new release, not as a post-hoc downgrade.
+#
+# The three pins below are CONFIRMED to resolve together (verified against
+# a real dependency graph from the same era): time, zerofrom, and zerovec.
+# `base64ct` and `home` are separately well-documented offenders elsewhere
+# in the Rust ecosystem, so they're pinned defensively even though this
+# project doesn't confirm-use them directly.
+#
+# If CI fails again with "feature `edition2024` is required" naming some
+# OTHER crate, that means it's genuinely in this project's tree and wasn't
+# one of the ones anticipated here — add a pin for it following the same
+# pattern: find its docs.rs version history, pick the last release dated
+# before ~late 2024 / early 2025, and add `crate_name = "=x.y.z"` below.
+time = "=0.3.37"
+zerofrom = "=0.1.5"
+zerovec = "=0.10.4"
+base64ct = "=1.6.0"
+home = "=0.5.9"
 
 [profile.release]
 lto = "thin"
