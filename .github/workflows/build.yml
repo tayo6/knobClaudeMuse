@@ -72,7 +72,30 @@ jobs:
           fi
 
       - name: Build release cdylib
-        run: cargo +${{ env.RUST_TOOLCHAIN }} build --release --target x86_64-pc-windows-msvc
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! cargo +${{ env.RUST_TOOLCHAIN }} build --release --target x86_64-pc-windows-msvc 2> /tmp/build_err.txt; then
+            cat /tmp/build_err.txt
+            if grep -q "cannot be built because it requires rustc" /tmp/build_err.txt; then
+              echo ""
+              echo "============================================================"
+              echo "A transitive dependency's MSRV is newer than our pinned"
+              echo "1.77.2 toolchain. This is different from the edition2024"
+              echo "issue: cargo CAN parse this crate's manifest, it just won't"
+              echo "compile it against a too-old rustc."
+              echo ""
+              echo "Fix: identify the crate + version named in the error above,"
+              echo "check its docs.rs version history for the newest release"
+              echo "that either predates ~April 2024 (when rustc 1.77.2 shipped)"
+              echo "or explicitly declares a rust-version compatible with"
+              echo "1.77.2, then add it to the '# --- Transitive-dependency"
+              echo "ceiling pins ---' section of Cargo.toml, e.g.:"
+              echo '    <crate_name> = "=<older-version>"'
+              echo "============================================================"
+            fi
+            exit 1
+          fi
 
       - name: Assemble VST3 bundle
         shell: pwsh
